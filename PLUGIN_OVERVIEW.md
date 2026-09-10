@@ -8,6 +8,10 @@ in bb's normal composer, then creates a hidden thread and renders bb's standard
 `ThreadChat` surface so streaming, tools, approvals, and provider controls
 behave normally.
 
+The overlay uses a compact header with a short retention summary. Its composer
+matches the modal's content width, keeps equal horizontal padding, and stays
+anchored to the bottom of the view.
+
 Switching to another chat or closing the incognito view stops any active turn
 and deletes the temporary thread immediately. A server-side heartbeat and
 cleanup pass cover browser disconnects and restarts.

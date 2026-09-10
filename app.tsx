@@ -1,5 +1,4 @@
 import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import type { ReactNode } from "react";
 import { Provider as TooltipProvider } from "@radix-ui/react-tooltip";
 import {
   definePluginApp,
@@ -78,18 +77,50 @@ function CloseIcon() {
   );
 }
 
-function PrivacyNotice({ children }: { children: ReactNode }) {
+function PrivacyNotice({
+  onClose,
+  titleId,
+}: {
+  onClose?: () => void;
+  titleId?: string;
+}) {
   return (
-    <div className="border-b border-border bg-card px-4 py-3 text-sm text-muted-foreground">
-      <div className="mx-auto flex w-full max-w-4xl items-start gap-3">
-        <EyeOffIcon className="mt-0.5 size-4 shrink-0 text-foreground" />
-        <div className="min-w-0">{children}</div>
+    <header className="shrink-0 border-b border-border bg-card/50 px-3 py-2 md:px-4">
+      <div className="mx-auto flex w-full max-w-4xl items-start gap-2">
+        <EyeOffIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+        <div className="min-w-0 flex-1">
+          <h2 id={titleId} className="text-sm font-medium text-foreground">
+            Incognito chat
+          </h2>
+          <p className="text-xs leading-4 text-muted-foreground">
+            Temporary chat · deleted when you leave
+          </p>
+        </div>
+        {onClose === undefined ? null : (
+          <button
+            type="button"
+            aria-label="Close incognito chat"
+            title="Close incognito chat"
+            className="-mr-1 inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            onClick={onClose}
+          >
+            <CloseIcon />
+          </button>
+        )}
       </div>
-    </div>
+    </header>
   );
 }
 
-function IncognitoWorkspace({ projectId }: { projectId: string | null }) {
+function IncognitoWorkspace({
+  projectId,
+  onClose,
+  titleId,
+}: {
+  projectId: string | null;
+  onClose?: () => void;
+  titleId?: string;
+}) {
   const { threadId: routeThreadId } = useBbContext();
   const rpc = useRpc<typeof rpcContract>();
   const [threadId, setThreadId] = useState<string | null>(null);
@@ -160,13 +191,7 @@ function IncognitoWorkspace({ projectId }: { projectId: string | null }) {
   if (threadId !== null) {
     return (
       <div className="flex h-full min-h-0 flex-col">
-        <PrivacyNotice>
-          <p className="font-medium text-foreground">Incognito session</p>
-          <p>
-            This conversation is removed when you switch chats or close this incognito view.
-            Workspace changes and provider-side data are not undone.
-          </p>
-        </PrivacyNotice>
+        <PrivacyNotice onClose={onClose} titleId={titleId} />
         <div className="min-h-0 flex-1">
           <ThreadChat
             threadId={threadId}
@@ -181,32 +206,37 @@ function IncognitoWorkspace({ projectId }: { projectId: string | null }) {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-y-auto">
-      <PrivacyNotice>
-          <p className="font-medium text-foreground">Start an incognito chat</p>
-          <p>
-            The temporary thread is hidden from your sidebar and deleted when you switch chats or
-            close this incognito view. Changes made by an agent in your workspace remain.
-        </p>
-      </PrivacyNotice>
-      <div className="mx-auto box-border w-full max-w-4xl flex-1 px-4 py-5 md:px-6 md:py-8">
-        {error === null ? null : (
-          <p role="alert" className="mb-4 rounded-md border border-destructive/40 p-3 text-sm text-destructive">
-            {error}
-          </p>
-        )}
-        <SuppressIncognitoActionContext.Provider value={true}>
-          <NewThreadComposer
-            defaultProjectId={projectId ?? undefined}
-            onSubmit={createSession}
-            layout="contained"
-            placeholder="What would you like to work on privately?"
-            draftKey="hmm-incognito-draft"
-          />
-        </SuppressIncognitoActionContext.Provider>
-        {creating ? (
-          <p className="mt-3 text-center text-xs text-muted-foreground">Creating secure session…</p>
-        ) : null}
+    <div className="flex h-full min-h-0 flex-col">
+      <PrivacyNotice onClose={onClose} titleId={titleId} />
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto flex min-h-full w-full flex-col justify-end px-4 py-4 md:px-6 md:py-6">
+          <div className="w-full">
+            {error === null ? null : (
+              <div
+                role="alert"
+                className="mb-4 rounded-lg border border-destructive/40 px-4 py-3 text-sm text-destructive"
+              >
+                <p className="font-medium">Couldn&apos;t start the incognito chat.</p>
+                <p className="mt-0.5 text-xs">{error} Try again.</p>
+              </div>
+            )}
+            <SuppressIncognitoActionContext.Provider value={true}>
+              <NewThreadComposer
+                defaultProjectId={projectId ?? undefined}
+                onSubmit={createSession}
+                layout="contained"
+                className="w-full"
+                placeholder="What would you like to work on privately?"
+                draftKey="hmm-incognito-draft"
+              />
+            </SuppressIncognitoActionContext.Provider>
+            {creating ? (
+              <p aria-live="polite" className="mt-3 text-center text-xs text-muted-foreground">
+                Starting incognito chat…
+              </p>
+            ) : null}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -221,35 +251,26 @@ function IncognitoDialog({ projectId, onClose }: { projectId: string | null; onC
     // The app-overlay boundary has no TooltipProvider; the host composer's
     // tooltips crash the slot without one.
     <TooltipProvider>
-      <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-16 md:pt-24" role="dialog" aria-modal="true" aria-label="Incognito chat">
-      <button
-        type="button"
-        aria-label="Close incognito chat"
-        className="absolute inset-0 cursor-default bg-background/80 backdrop-blur-[2px]"
-        onClick={onClose}
-      />
-      <section className="relative z-10 flex h-[min(720px,calc(100vh-8rem))] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-border bg-background shadow-2xl">
-        <header className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
-          <div className="flex min-w-0 items-center gap-2">
-            <EyeOffIcon className="size-4 shrink-0 text-foreground" />
-            <div className="min-w-0">
-              <h2 className="truncate text-sm font-semibold text-foreground">Incognito chat</h2>
-              <p className="truncate text-xs text-muted-foreground">Deleted when you switch chats or close this view</p>
-            </div>
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-8"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="incognito-dialog-title"
+      >
+        <button
+          type="button"
+          aria-label="Close incognito chat"
+          className="absolute inset-0 cursor-default bg-background/85"
+          onClick={onClose}
+        />
+        <section className="relative z-10 flex h-[min(760px,calc(100vh-1rem))] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-border bg-background sm:h-[min(760px,calc(100vh-2rem))] md:h-[min(760px,calc(100vh-4rem))]">
+          <div className="min-h-0 flex-1">
+            <IncognitoWorkspace
+              projectId={projectId}
+              onClose={onClose}
+              titleId="incognito-dialog-title"
+            />
           </div>
-          <button
-            type="button"
-            aria-label="Close incognito chat"
-            title="Close incognito chat"
-            className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            onClick={onClose}
-          >
-            <CloseIcon />
-          </button>
-        </header>
-        <div className="min-h-0 flex-1">
-          <IncognitoWorkspace projectId={projectId} />
-        </div>
         </section>
       </div>
     </TooltipProvider>
