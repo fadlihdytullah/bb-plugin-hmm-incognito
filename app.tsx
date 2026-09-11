@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import { Provider as TooltipProvider } from "@radix-ui/react-tooltip";
 import {
   definePluginApp,
@@ -13,6 +14,37 @@ import type { rpcContract } from "./server";
 
 const NewThreadComposer = experimental_NewThreadComposer;
 const SuppressIncognitoActionContext = createContext(false);
+const TOGGLE_EVENT = "hmm-incognito:toggle";
+
+const SHORTCUT_HINT =
+  typeof navigator !== "undefined" && /mac/i.test(navigator.platform ?? "")
+    ? "⌘⌥N"
+    : "Ctrl+Alt+N";
+
+// The composer action stays on the root New Thread composer. The global
+// shortcut is handled by a capture-phase content script so BB's own shortcuts
+// cannot consume it first, then forwarded to the app-wide floating overlay.
+function isIncognitoShortcut(event: KeyboardEvent): boolean {
+  return (
+    !event.repeat &&
+    event.code === "KeyN" &&
+    (event.metaKey || event.ctrlKey) &&
+    event.altKey &&
+    !event.shiftKey
+  );
+}
+
+function mountShortcutListener(): () => void {
+  const onKeyDown = (event: KeyboardEvent): void => {
+    if (!isIncognitoShortcut(event)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    window.dispatchEvent(new CustomEvent(TOGGLE_EVENT));
+  };
+
+  window.addEventListener("keydown", onKeyDown, { capture: true });
+  return () => window.removeEventListener("keydown", onKeyDown, { capture: true });
+}
 
 // The composer action slot sits inside bb's promptbox, which declares
 // `container-type: inline-size`. That makes it the containing block for
@@ -96,17 +128,22 @@ function PrivacyNotice({
             Temporary chat · deleted when you leave
           </p>
         </div>
-        {onClose === undefined ? null : (
-          <button
-            type="button"
-            aria-label="Close incognito chat"
-            title="Close incognito chat"
-            className="-mr-1 inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            onClick={onClose}
-          >
-            <CloseIcon />
-          </button>
-        )}
+        <div className="flex shrink-0 items-center gap-1">
+          <kbd className="hidden rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground sm:inline-block">
+            {SHORTCUT_HINT}
+          </kbd>
+          {onClose === undefined ? null : (
+            <button
+              type="button"
+              aria-label="Close incognito chat"
+              title="Close incognito chat"
+              className="-mr-1 inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              onClick={onClose}
+            >
+              <CloseIcon />
+            </button>
+          )}
+        </div>
       </div>
     </header>
   );
@@ -247,33 +284,43 @@ function IncognitoPanel({ projectId }: PluginNewThreadPanelProps) {
 }
 
 function IncognitoDialog({ projectId, onClose }: { projectId: string | null; onClose: () => void }) {
-  return (
+  const overlayHost =
+    typeof document === "undefined"
+      ? null
+      : document.querySelector<HTMLElement>('main[data-sidebar="inset"]') ?? document.body;
+
+  if (overlayHost === null) return null;
+
+  return createPortal(
     // The app-overlay boundary has no TooltipProvider; the host composer's
     // tooltips crash the slot without one.
     <TooltipProvider>
-      <div
-        className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-8"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="incognito-dialog-title"
-      >
-        <button
-          type="button"
-          aria-label="Close incognito chat"
-          className="absolute inset-0 cursor-default bg-background/85"
-          onClick={onClose}
-        />
-        <section className="relative z-10 flex h-[min(760px,calc(100vh-1rem))] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-border bg-background sm:h-[min(760px,calc(100vh-2rem))] md:h-[min(760px,calc(100vh-4rem))]">
-          <div className="min-h-0 flex-1">
-            <IncognitoWorkspace
-              projectId={projectId}
-              onClose={onClose}
-              titleId="incognito-dialog-title"
-            />
-          </div>
-        </section>
+      <div data-bb-plugin="hmm-incognito" style={{ display: "contents" }}>
+        <div
+          className="absolute inset-0 z-50 flex items-center justify-center p-2 sm:p-3 md:p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="incognito-dialog-title"
+        >
+          <button
+            type="button"
+            aria-label="Close incognito chat"
+            className="absolute inset-0 cursor-default bg-background/85 backdrop-blur-md"
+            onClick={onClose}
+          />
+          <section className="relative z-10 flex min-h-0 h-[min(900px,calc(100vh-1rem))] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-border bg-background sm:h-[min(900px,calc(100vh-1.5rem))] md:h-[min(900px,calc(100vh-2rem))]">
+            <div className="h-full min-h-0 flex-1">
+              <IncognitoWorkspace
+                projectId={projectId}
+                onClose={onClose}
+                titleId="incognito-dialog-title"
+              />
+            </div>
+          </section>
+        </div>
       </div>
-    </TooltipProvider>
+    </TooltipProvider>,
+    overlayHost,
   );
 }
 
@@ -288,9 +335,10 @@ function IncognitoComposerAction() {
   return (
     <button
       type="button"
-      aria-label="Open incognito chat"
+      aria-label={`Open incognito chat (${SHORTCUT_HINT})`}
       aria-expanded={isOpen}
-      title="Open incognito chat"
+      aria-keyshortcuts={SHORTCUT_HINT.startsWith("⌘") ? "Meta+Alt+N" : "Control+Alt+N"}
+      title={`Open incognito chat (${SHORTCUT_HINT})`}
       className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       onClick={() => setOverlayState({ projectId })}
     >
@@ -301,7 +349,7 @@ function IncognitoComposerAction() {
 
 function IncognitoOverlay() {
   const session = useOverlayState();
-  const { threadId: routeThreadId } = useBbContext();
+  const { threadId: routeThreadId, projectId } = useBbContext();
   const routeThreadIdRef = useRef(routeThreadId);
 
   useEffect(() => {
@@ -311,19 +359,23 @@ function IncognitoOverlay() {
   }, [routeThreadId]);
 
   useEffect(() => {
-    if (session === null) return;
-    function onKeyDown(event: KeyboardEvent): void {
-      if (event.key === "Escape") setOverlayState(null);
+    function onToggle(): void {
+      setOverlayState(session === null ? { projectId } : null);
     }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [session]);
+    window.addEventListener(TOGGLE_EVENT, onToggle);
+    return () => window.removeEventListener(TOGGLE_EVENT, onToggle);
+  }, [projectId, session]);
 
   if (session === null) return null;
   return <IncognitoDialog projectId={session.projectId} onClose={() => setOverlayState(null)} />;
 }
 
 export default definePluginApp((app) => {
+  app.contentScripts.register({
+    id: "incognito-shortcut",
+    mount: () => mountShortcutListener(),
+  });
+
   app.composer.customize({
     id: "incognito-composer",
     scopes: ["new-thread"],
