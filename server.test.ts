@@ -20,6 +20,16 @@ const request = {
   input: [{ type: "text" as const, text: "Keep this temporary." }],
 };
 
+const providerEnvironmentRequest = {
+  ...request,
+  environment: {
+    type: "provider" as const,
+    environmentProviderId: "project-checkout",
+    inputs: null,
+    machine: { type: "existing" as const, hostId: "host-1" },
+  },
+};
+
 afterEach(async () => {
   await Promise.all(hosts.splice(0).map((host) => host.harness.lifecycle.dispose()));
 });
@@ -94,5 +104,20 @@ describe("Hmm Incognito server", () => {
       threadId: "thread-incognito",
       visibility: "hidden",
     });
+  });
+
+  it("accepts the provider environment submitted by the current composer", async () => {
+    const { host, spawn } = createHost();
+    await plugin(host.bb);
+
+    await expect(
+      host.harness.callRpc("session_create", { request: providerEnvironmentRequest }),
+    ).resolves.toEqual({ threadId: "thread-incognito" });
+    expect(spawn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        environment: providerEnvironmentRequest.environment,
+        input: [{ type: "text", text: "Keep this temporary.", mentions: [] }],
+      }),
+    );
   });
 });

@@ -4,9 +4,9 @@ should not remain in the normal thread list.
 Click the **Eye off** CTA in the primary New Thread composer (or choose
 **Incognito chat** from the New Thread panel fallback). The overlay keeps the
 same project, provider, model, environment, and permission settings available
-in bb's normal composer, then creates a hidden thread and renders bb's standard
-`ThreadChat` surface so streaming, tools, approvals, and provider controls
-behave normally.
+in bb's normal composer—including provider-managed environment and machine
+inputs—then creates a hidden thread and renders bb's standard `ThreadChat`
+surface so streaming, tools, approvals, and provider controls behave normally.
 
 The overlay uses a compact header with a short retention summary. Its composer
 matches the modal's content width, keeps equal horizontal padding, and stays

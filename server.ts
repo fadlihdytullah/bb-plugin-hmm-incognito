@@ -47,6 +47,21 @@ const environmentSchema = z.discriminatedUnion("type", [
     hostId: z.string().min(1).optional(),
     workspace: workspaceSchema,
   }),
+  z.object({
+    type: z.literal("provider"),
+    environmentProviderId: z.string().min(1),
+    inputs: z.json().nullable().default(null),
+    machine: z
+      .discriminatedUnion("type", [
+        z.object({ type: z.literal("existing"), hostId: z.string().min(1) }),
+        z.object({
+          type: z.literal("new"),
+          machineProviderId: z.string().min(1),
+          inputs: z.json().nullable().default(null),
+        }),
+      ])
+      .optional(),
+  }),
 ]);
 
 const mentionResourceSchema = z.discriminatedUnion("kind", [

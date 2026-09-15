@@ -82,6 +82,10 @@ bb plugin install path:.
 - The overlay keeps a compact header with a short retention summary. The
   composer uses the same content width as the modal, keeps equal horizontal
   insets, and stays anchored to the bottom edge.
+- The composer forwards the complete environment selection to the server,
+  including provider-managed environments, provider inputs, and machine
+  selections, so the incognito thread uses the same workspace choice as the
+  normal New Thread flow.
 - Submitting spawns the thread server-side with `visibility: "hidden"` and
   `title: "Incognito chat"`, then renders bb's standard `ThreadChat`, so
   streaming, tools, approvals, and provider controls behave normally.
@@ -106,4 +110,5 @@ This is temporary conversation cleanup, not a provider-side privacy mode:
 ## Development
 
 Run `bb plugin dev` from this directory for an edit/reload loop. Use
-`bb plugin types` after switching to a different bb SDK version.
+`bb plugin types` after switching to a different bb SDK version so the
+composer request contract stays aligned with the running bb host.
