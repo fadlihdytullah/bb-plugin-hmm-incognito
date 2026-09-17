@@ -121,3 +121,36 @@ describe("Hmm Incognito server", () => {
     );
   });
 });
+
+describe("Hmm Incognito default model", () => {
+  it("stores, reports, and resets the default execution", async () => {
+    const { host } = createHost();
+    await plugin(host.bb);
+
+    await expect(host.harness.callRpc("defaults_get", {})).resolves.toEqual({
+      defaults: null,
+      lastUsed: null,
+    });
+
+    const defaults = { providerId: "claude-code", model: "claude-sonnet-5", reasoningLevel: "high" };
+    await expect(host.harness.callRpc("defaults_set", { defaults })).resolves.toEqual({ defaults });
+    await expect(host.harness.callRpc("defaults_get", {})).resolves.toMatchObject({ defaults });
+
+    await expect(host.harness.callRpc("defaults_set", { defaults: null })).resolves.toEqual({
+      defaults: null,
+    });
+    await expect(host.harness.callRpc("defaults_get", {})).resolves.toMatchObject({
+      defaults: null,
+    });
+  });
+
+  it("remembers the execution the last incognito chat ran with", async () => {
+    const { host } = createHost();
+    await plugin(host.bb);
+
+    await host.harness.callRpc("session_create", { request });
+    await expect(host.harness.callRpc("defaults_get", {})).resolves.toMatchObject({
+      lastUsed: { providerId: "codex", model: "gpt-5", reasoningLevel: "medium" },
+    });
+  });
+});

@@ -86,6 +86,14 @@ bb plugin install path:.
   including provider-managed environments, provider inputs, and machine
   selections, so the incognito thread uses the same workspace choice as the
   normal New Thread flow.
+- A **Default model** section registers through `app.slots.settingsSection` and
+  renders on the plugin's Tools detail page. It uses bb's own
+  `experimental_ProviderModelPicker`, so the selection is validated against the
+  live provider catalog instead of being typed as a raw model id. The stored
+  value seeds the incognito composer's provider, model, reasoning level, and
+  service tier; **Reset to BB default** clears it and returns the composer to
+  bb's own defaults. Until a default is set, the picker opens on the execution
+  the last incognito chat actually ran with.
 - Submitting spawns the thread server-side with `visibility: "hidden"` and
   `title: "Incognito chat"`, then renders bb's standard `ThreadChat`, so
   streaming, tools, approvals, and provider controls behave normally.

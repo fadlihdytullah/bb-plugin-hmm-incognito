@@ -2,6 +2,8 @@ import { defineRpcContract, type BbPluginApi, type NewThreadRequest } from "@get
 import { z } from "zod";
 
 const SESSION_KEY = "active-sessions";
+const DEFAULT_EXECUTION_KEY = "default-execution";
+const LAST_EXECUTION_KEY = "last-execution";
 const SESSION_TTL_MS = 60_000;
 const SWEEP_INTERVAL_MS = 15_000;
 
@@ -161,6 +163,16 @@ const sessionSchema = z.object({
   updatedAt: z.number().finite().int().nonnegative(),
 });
 
+// The execution selection new incognito chats seed their composer from. It is
+// the same shape `experimental_ProviderModelPicker` emits and `threads.spawn`
+// consumes, so it round-trips between the settings picker and the composer.
+const executionSchema = z.object({
+  providerId: z.string().min(1),
+  model: z.string().min(1),
+  reasoningLevel: reasoningLevelSchema,
+  serviceTier: serviceTierSchema.optional(),
+});
+
 const rpcContract = defineRpcContract({
   session_create: {
     input: z.object({ request: newThreadRequestSchema }),
@@ -174,9 +186,23 @@ const rpcContract = defineRpcContract({
     input: z.object({ threadId: z.string().min(1) }),
     output: z.object({ removed: z.boolean() }),
   },
+  defaults_get: {
+    input: z.object({}),
+    output: z.object({
+      defaults: executionSchema.nullable(),
+      // What the last incognito chat actually ran with, so the settings picker
+      // opens on a real provider and model before anything is configured.
+      lastUsed: executionSchema.nullable(),
+    }),
+  },
+  defaults_set: {
+    input: z.object({ defaults: executionSchema.nullable() }),
+    output: z.object({ defaults: executionSchema.nullable() }),
+  },
 });
 
 type IncognitoSession = z.infer<typeof sessionSchema>;
+type IncognitoExecution = z.infer<typeof executionSchema>;
 
 function isMissingThreadError(error: unknown): boolean {
   const message = String(error).toLowerCase();
@@ -204,6 +230,11 @@ export default async function plugin(bb: BbPluginApi) {
 
   async function persistSessions(): Promise<void> {
     await bb.storage.kv.set(SESSION_KEY, sessions);
+  }
+
+  async function readExecution(key: string): Promise<IncognitoExecution | null> {
+    const parsed = executionSchema.safeParse(await bb.storage.kv.get<unknown>(key));
+    return parsed.success ? parsed.data : null;
   }
 
   async function deleteThread(threadId: string): Promise<boolean> {
@@ -281,6 +312,14 @@ export default async function plugin(bb: BbPluginApi) {
         await deleteThread(thread.id);
         throw error;
       }
+      const used = executionSchema.safeParse(request);
+      if (used.success) {
+        await bb.storage.kv
+          .set(LAST_EXECUTION_KEY, used.data)
+          .catch((error: unknown) =>
+            bb.log.debug(`incognito last-execution save failed: ${String(error)}`),
+          );
+      }
       return { threadId: thread.id };
     },
     session_heartbeat: async ({ threadId }) => {
@@ -291,6 +330,15 @@ export default async function plugin(bb: BbPluginApi) {
       return { ok: true } as const;
     },
     session_close: async ({ threadId }) => ({ removed: await removeSession(threadId) }),
+    defaults_get: async () => ({
+      defaults: await readExecution(DEFAULT_EXECUTION_KEY),
+      lastUsed: await readExecution(LAST_EXECUTION_KEY),
+    }),
+    defaults_set: async ({ defaults }) => {
+      if (defaults === null) await bb.storage.kv.delete(DEFAULT_EXECUTION_KEY);
+      else await bb.storage.kv.set(DEFAULT_EXECUTION_KEY, defaults);
+      return { defaults };
+    },
   });
 
   bb.background.service("incognito-cleanup", {
@@ -307,5 +355,5 @@ export default async function plugin(bb: BbPluginApi) {
   });
 }
 
-export type { IncognitoSession };
+export type { IncognitoExecution, IncognitoSession };
 export { rpcContract };

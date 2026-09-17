@@ -19,6 +19,10 @@ describe("Hmm Incognito app", () => {
     expect(app.contentScripts).toMatchObject([{ id: "incognito-shortcut" }]);
   });
 
+  it("registers the default-model settings section", () => {
+    expect(app.settingsSections).toMatchObject([{ id: "incognito-defaults", title: "Default model" }]);
+  });
+
   it("does not add Incognito chat to existing-thread sidebar actions", () => {
     expect(app.threadPanelActions).toHaveLength(0);
   });

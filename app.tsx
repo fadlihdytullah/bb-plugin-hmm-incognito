@@ -4,15 +4,22 @@ import { Provider as TooltipProvider } from "@radix-ui/react-tooltip";
 import {
   definePluginApp,
   experimental_NewThreadComposer,
+  experimental_ProviderModelPicker,
+  experimental_useProviders,
   ThreadChat,
   useBbContext,
   useComposerView,
   useRpc,
 } from "@get-bb/plugin-sdk/app";
-import type { NewThreadRequest, PluginNewThreadPanelProps } from "@get-bb/plugin-sdk/app";
+import type {
+  ExperimentalProviderModelPickerValue,
+  NewThreadRequest,
+  PluginNewThreadPanelProps,
+} from "@get-bb/plugin-sdk/app";
 import type { rpcContract } from "./server";
 
 const NewThreadComposer = experimental_NewThreadComposer;
+const ProviderModelPicker = experimental_ProviderModelPicker;
 const SuppressIncognitoActionContext = createContext(false);
 const TOGGLE_EVENT = "hmm-incognito:toggle";
 
@@ -149,6 +156,30 @@ function PrivacyNotice({
   );
 }
 
+type IncognitoExecution = ExperimentalProviderModelPickerValue;
+
+// Resolves once per mount. The composer treats `default*` as re-seedable props,
+// so arriving a tick after mount simply re-seeds the pickers.
+function useIncognitoDefaults(): IncognitoExecution | null {
+  const rpc = useRpc<typeof rpcContract>();
+  const [defaults, setDefaults] = useState<IncognitoExecution | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void rpc
+      .call("defaults_get", {})
+      .then((result) => {
+        if (active) setDefaults(result.defaults);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [rpc]);
+
+  return defaults;
+}
+
 function IncognitoWorkspace({
   projectId,
   onClose,
@@ -160,6 +191,7 @@ function IncognitoWorkspace({
 }) {
   const { threadId: routeThreadId } = useBbContext();
   const rpc = useRpc<typeof rpcContract>();
+  const defaults = useIncognitoDefaults();
   const [threadId, setThreadId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -260,6 +292,10 @@ function IncognitoWorkspace({
             <SuppressIncognitoActionContext.Provider value={true}>
               <NewThreadComposer
                 defaultProjectId={projectId ?? undefined}
+                defaultProviderId={defaults?.providerId}
+                defaultModel={defaults?.model}
+                defaultReasoningLevel={defaults?.reasoningLevel}
+                defaultServiceTier={defaults?.serviceTier}
                 onSubmit={createSession}
                 layout="contained"
                 className="w-full"
@@ -275,6 +311,92 @@ function IncognitoWorkspace({
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// Rendered on the plugin's Tools detail page. The model is stored as this
+// plugin's own preference instead of a declarative setting because a model id
+// is only meaningful against the live provider catalog the picker reads.
+function IncognitoDefaultsSection() {
+  const rpc = useRpc<typeof rpcContract>();
+  const { providers } = experimental_useProviders();
+  const [state, setState] = useState<{
+    defaults: IncognitoExecution | null;
+    lastUsed: IncognitoExecution | null;
+  } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void rpc.call("defaults_get", {}).then(
+      (result) => {
+        if (active) setState({ defaults: result.defaults, lastUsed: result.lastUsed });
+      },
+      (cause: unknown) => {
+        if (!active) return;
+        setState({ defaults: null, lastUsed: null });
+        setError(cause instanceof Error ? cause.message : String(cause));
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, [rpc]);
+
+  async function save(next: IncognitoExecution | null): Promise<void> {
+    // A provider switch can emit before the live catalog resolves a model.
+    if (next !== null && next.model === "") return;
+    setState((prev) => (prev === null ? prev : { ...prev, defaults: next }));
+    setError(null);
+    try {
+      await rpc.call("defaults_set", { defaults: next });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    }
+  }
+
+  if (state === null) {
+    return <p className="text-sm text-muted-foreground">Loading…</p>;
+  }
+
+  const stored = state.defaults ?? state.lastUsed;
+  const fallbackProvider = providers.find((provider) => provider.available) ?? providers[0];
+  if (stored === null && fallbackProvider === undefined) {
+    return <p className="text-sm text-muted-foreground">No agent providers are available yet.</p>;
+  }
+
+  const value: IncognitoExecution = stored ?? {
+    providerId: fallbackProvider?.id ?? "",
+    model: "",
+    reasoningLevel: (fallbackProvider?.reasoningLevels?.[0]?.id ??
+      "medium") as IncognitoExecution["reasoningLevel"],
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <ProviderModelPicker value={value} onChange={(next) => void save(next)} />
+        {state.defaults === null ? null : (
+          <button
+            type="button"
+            className="inline-flex h-8 items-center rounded-md px-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            onClick={() => void save(null)}
+          >
+            Reset to BB default
+          </button>
+        )}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {state.defaults === null
+          ? "Not set — incognito chats start with BB's own default provider and model."
+          : "New incognito chats start with this provider and model."}
+      </p>
+      {error === null ? null : (
+        <p role="alert" className="text-xs text-destructive">
+          {error}
+        </p>
+      )}
     </div>
   );
 }
@@ -380,6 +502,13 @@ export default definePluginApp((app) => {
     id: "incognito-composer",
     scopes: ["new-thread"],
     actions: [{ id: "open-incognito", component: IncognitoComposerAction }],
+  });
+
+  app.slots.settingsSection({
+    id: "incognito-defaults",
+    title: "Default model",
+    description: "Provider and model new incognito chats start with.",
+    component: IncognitoDefaultsSection,
   });
 
   app.slots.experimental_appOverlay({
