@@ -8,6 +8,12 @@ in bb's normal composer—including provider-managed environment and machine
 inputs—then creates a hidden thread and renders bb's standard `ThreadChat`
 surface so streaming, tools, approvals, and provider controls behave normally.
 
+Set a **Default model** on the plugin's page in Tools to choose the provider,
+model, reasoning level, and service tier every new incognito chat starts with.
+The picker reads bb's live provider catalog; **Reset to BB default** returns
+incognito chats to bb's own defaults. You can still change the model per chat
+in the composer.
+
 The overlay uses a compact header with a short retention summary and a centered
 pixel "incognito" wordmark until the first message is sent. Its composer
 matches the modal's content width, keeps equal horizontal padding, and stays
