@@ -72,16 +72,19 @@ bb plugin install path:.
   content into bb's main chat inset, restores the plugin CSS scope at the portal
   root, and uses a blurred backdrop so the dialog is centered and sized against
   the chat container rather than across the entire application window. Its
-  responsive surface grows to a maximum height of 900px while preserving
+  responsive surface grows to a maximum height of 640px while preserving
   viewport insets.
 - A capture-phase content script recognizes <kbd>⌘⌥N</kbd> /
   <kbd>Ctrl+Alt+N</kbd> and forwards a toggle event to the app-wide overlay.
   The overlay resolves the active project through `useBbContext()`, so the
   shortcut opens the same floating chat from existing chats, New Thread, or a
   plugin page.
-- The overlay keeps a compact header with a short retention summary. The
-  composer uses the same content width as the modal, keeps equal horizontal
-  insets, and stays anchored to the bottom edge.
+- The overlay keeps a compact header with a short retention summary. Before
+  the first message, a pixel "incognito" wordmark (drawn in the same grid as
+  the mercury theme's wordmark, tinted from `currentColor`) fills the empty
+  space, centered and scaling down when the view is short. The composer uses
+  the same content width as the modal, keeps equal horizontal insets, and stays
+  anchored to the bottom edge.
 - The composer forwards the complete environment selection to the server,
   including provider-managed environments, provider inputs, and machine
   selections, so the incognito thread uses the same workspace choice as the

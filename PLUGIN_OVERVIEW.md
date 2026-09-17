@@ -8,7 +8,8 @@ in bb's normal composer—including provider-managed environment and machine
 inputs—then creates a hidden thread and renders bb's standard `ThreadChat`
 surface so streaming, tools, approvals, and provider controls behave normally.
 
-The overlay uses a compact header with a short retention summary. Its composer
+The overlay uses a compact header with a short retention summary and a centered
+pixel "incognito" wordmark until the first message is sent. Its composer
 matches the modal's content width, keeps equal horizontal padding, and stays
 anchored to the bottom of the view.
 

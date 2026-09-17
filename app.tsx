@@ -116,6 +116,56 @@ function CloseIcon() {
   );
 }
 
+// Pixel glyphs in the same grid as the mercury theme's "suikodev" wordmark:
+// row 0 ascender, rows 1-5 x-height, row 6 descender.
+const GLYPHS: Record<string, string[]> = {
+  i: ["#", ".", "#", "#", "#", "#", "."],
+  n: [".....", "#####", "#...#", "#...#", "#...#", "#...#", "....."],
+  c: [".....", "#####", "#....", "#....", "#....", "#####", "....."],
+  o: [".....", "#####", "#...#", "#...#", "#...#", "#####", "....."],
+  g: [".....", "#####", "#...#", "#...#", "#####", "....#", "#####"],
+  t: [".#.", "###", ".#.", ".#.", ".#.", ".##", "..."],
+};
+
+function buildWordmark(word: string): { width: number; cells: Array<[number, number]> } {
+  const cells: Array<[number, number]> = [];
+  let x = 0;
+  for (const char of word) {
+    const rows = GLYPHS[char];
+    rows.forEach((row, y) => {
+      for (let col = 0; col < row.length; col += 1) if (row[col] === "#") cells.push([x + col, y]);
+    });
+    x += rows[0].length + 1;
+  }
+  return { width: x - 1, cells };
+}
+
+const WORDMARK = buildWordmark("incognito");
+const WORDMARK_FILL_ID = "hmm-incognito-wordmark-fill";
+
+function IncognitoWordmark() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="block max-h-full w-full text-foreground"
+      viewBox={`0 0 ${WORDMARK.width} 7`}
+      shapeRendering="crispEdges"
+    >
+      <defs>
+        <linearGradient id={WORDMARK_FILL_ID} gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="7">
+          <stop offset="0" stopColor="currentColor" stopOpacity={0.16} />
+          <stop offset="1" stopColor="currentColor" stopOpacity={0.05} />
+        </linearGradient>
+      </defs>
+      <g fill={`url(#${WORDMARK_FILL_ID})`}>
+        {WORDMARK.cells.map(([x, y]) => (
+          <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} />
+        ))}
+      </g>
+    </svg>
+  );
+}
+
 function PrivacyNotice({
   onClose,
   titleId,
@@ -277,38 +327,39 @@ function IncognitoWorkspace({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <PrivacyNotice onClose={onClose} titleId={titleId} />
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto flex min-h-full w-full flex-col justify-end px-4 py-4 md:px-6 md:py-6">
-          <div className="w-full">
-            {error === null ? null : (
-              <div
-                role="alert"
-                className="mb-4 rounded-lg border border-destructive/40 px-4 py-3 text-sm text-destructive"
-              >
-                <p className="font-medium">Couldn&apos;t start the incognito chat.</p>
-                <p className="mt-0.5 text-xs">{error} Try again.</p>
-              </div>
-            )}
-            <SuppressIncognitoActionContext.Provider value={true}>
-              <NewThreadComposer
-                defaultProjectId={projectId ?? undefined}
-                defaultProviderId={defaults?.providerId}
-                defaultModel={defaults?.model}
-                defaultReasoningLevel={defaults?.reasoningLevel}
-                defaultServiceTier={defaults?.serviceTier}
-                onSubmit={createSession}
-                layout="contained"
-                className="w-full"
-                placeholder="What would you like to work on privately?"
-                draftKey="hmm-incognito-draft"
-              />
-            </SuppressIncognitoActionContext.Provider>
-            {creating ? (
-              <p aria-live="polite" className="mt-3 text-center text-xs text-muted-foreground">
-                Starting incognito chat…
-              </p>
-            ) : null}
-          </div>
+      <div className="flex min-h-0 flex-1 items-center justify-center px-4 py-4 md:px-6">
+        <IncognitoWordmark />
+      </div>
+      <div className="shrink-0 px-4 pb-4 md:px-6 md:pb-6">
+        <div className="w-full">
+          {error === null ? null : (
+            <div
+              role="alert"
+              className="mb-4 rounded-lg border border-destructive/40 px-4 py-3 text-sm text-destructive"
+            >
+              <p className="font-medium">Couldn&apos;t start the incognito chat.</p>
+              <p className="mt-0.5 text-xs">{error} Try again.</p>
+            </div>
+          )}
+          <SuppressIncognitoActionContext.Provider value={true}>
+            <NewThreadComposer
+              defaultProjectId={projectId ?? undefined}
+              defaultProviderId={defaults?.providerId}
+              defaultModel={defaults?.model}
+              defaultReasoningLevel={defaults?.reasoningLevel}
+              defaultServiceTier={defaults?.serviceTier}
+              onSubmit={createSession}
+              layout="contained"
+              className="w-full"
+              placeholder="What would you like to work on privately?"
+              draftKey="hmm-incognito-draft"
+            />
+          </SuppressIncognitoActionContext.Provider>
+          {creating ? (
+            <p aria-live="polite" className="mt-3 text-center text-xs text-muted-foreground">
+              Starting incognito chat…
+            </p>
+          ) : null}
         </div>
       </div>
     </div>
@@ -430,7 +481,7 @@ function IncognitoDialog({ projectId, onClose }: { projectId: string | null; onC
             className="absolute inset-0 cursor-default bg-background/85 backdrop-blur-md"
             onClick={onClose}
           />
-          <section className="relative z-10 flex min-h-0 h-[min(900px,calc(100vh-1rem))] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-border bg-background sm:h-[min(900px,calc(100vh-1.5rem))] md:h-[min(900px,calc(100vh-2rem))]">
+          <section className="relative z-10 flex min-h-0 h-[min(640px,calc(100vh-1rem))] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-border bg-background sm:h-[min(640px,calc(100vh-1.5rem))] md:h-[min(640px,calc(100vh-2rem))]">
             <div className="h-full min-h-0 flex-1">
               <IncognitoWorkspace
                 projectId={projectId}
