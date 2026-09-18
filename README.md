@@ -86,7 +86,9 @@ bb plugin install path:.
   the mercury theme's wordmark, tinted from `currentColor`) fills the empty
   space, centered and scaling down when the view is short. The composer uses
   the same content width as the modal, keeps equal horizontal insets, and stays
-  anchored to the bottom edge.
+  anchored to the bottom edge. Its editor is capped at `min(18rem, 35vh)` so
+  long drafts scroll inside it instead of pushing the composer actions out of
+  the modal; the cap targets the host editor's `.ProseMirror` element.
 - The composer forwards the complete environment selection to the server,
   including provider-managed environments, provider inputs, and machine
   selections, so the incognito thread uses the same workspace choice as the

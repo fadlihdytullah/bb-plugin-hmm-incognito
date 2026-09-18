@@ -17,7 +17,8 @@ in the composer.
 The overlay uses a compact header with a short retention summary and a centered
 pixel "incognito" wordmark until the first message is sent. Its composer
 matches the modal's content width, keeps equal horizontal padding, and stays
-anchored to the bottom of the view.
+anchored to the bottom of the view. Long drafts scroll inside the editor, so
+the composer actions stay visible.
 
 Switching to another chat or closing the incognito view stops any active turn
 and deletes the temporary thread immediately. A server-side heartbeat and

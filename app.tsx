@@ -186,8 +186,12 @@ function PrivacyNotice({
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          <kbd className="hidden rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground sm:inline-block">
-            {SHORTCUT_HINT}
+          <kbd className="hidden rounded border border-border bg-muted items-center px-1.5 py-1 text-xs leading-none font-medium tracking-[0.2em] text-muted-foreground sm:inline-flex">
+            {/* Mac modifier glyphs render tiny next to letters at the same size. */}
+            <span className={SHORTCUT_HINT.startsWith("⌘") ? "text-base" : undefined}>
+              {SHORTCUT_HINT.slice(0, -1)}
+            </span>
+            {SHORTCUT_HINT.slice(-1)}
           </kbd>
           {onClose === undefined ? null : (
             <button
@@ -350,7 +354,9 @@ function IncognitoWorkspace({
               defaultServiceTier={defaults?.serviceTier}
               onSubmit={createSession}
               layout="contained"
-              className="w-full"
+              // The host editor's max height is viewport-based and outgrows this
+              // dialog; cap it so long drafts scroll and the actions stay visible.
+              className="w-full [&_.ProseMirror]:max-h-[min(18rem,35vh)] [&_.ProseMirror]:overflow-y-auto"
               placeholder="What would you like to work on privately?"
               draftKey="hmm-incognito-draft"
             />
