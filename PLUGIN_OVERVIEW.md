@@ -1,7 +1,7 @@
 Hmm Incognito gives bb a short-lived private workspace for conversations that
 should not remain in the normal thread list.
 
-Click the **Eye off** CTA in the primary New Thread composer (or choose
+Click the **Eye off** CTA in the New Thread or an existing thread's composer (or choose
 **Incognito chat** from the New Thread panel fallback). The overlay keeps the
 same project, provider, model, environment, and permission settings available
 in bb's normal composer—including provider-managed environment and machine

@@ -1,7 +1,7 @@
 # bb-plugin-hmm-incognito
 
 Temporary, hidden chats for [bb](https://getbb.app). Hmm Incognito adds an
-**Eye off** CTA to bb's primary New Thread composer. It opens an incognito chat
+**Eye off** CTA to bb's New Thread and existing-thread composers. It opens an incognito chat
 overlay using the normal bb composer and chat UI, then deletes the hidden
 temporary thread as soon as you close that view or switch to another chat. The
 overlay can also be toggled from anywhere with <kbd>⌘⌥N</kbd>
@@ -60,7 +60,9 @@ bb plugin install path:.
 ## How it works
 
 - The **Eye off** action registers through `app.composer.customize` on the
-  `new-thread` scope. It is not added to existing-thread composer actions.
+  `new-thread` and `thread` scopes. In an existing thread it resolves the
+  project through `useBbContext()`; the incognito overlay's own composer hides
+  it.
 - The **Incognito chat** entry remains available through
   `app.slots.experimental_newThreadPanelAction` on the New Thread screen. No
   `threadPanelAction` is registered for existing-thread sidebar Actions.

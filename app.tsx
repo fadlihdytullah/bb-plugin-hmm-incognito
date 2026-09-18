@@ -501,9 +501,16 @@ function IncognitoComposerAction() {
   const view = useComposerView();
   const isIncognitoComposer = useContext(SuppressIncognitoActionContext);
   const isOpen = useOverlayState() !== null;
+  const { projectId: routeProjectId } = useBbContext();
 
-  if (isIncognitoComposer || view.scope.kind !== "new-thread") return null;
-  const projectId = view.scope.projectId;
+  if (isIncognitoComposer) return null;
+  const projectId =
+    view.scope.kind === "new-thread"
+      ? view.scope.projectId
+      : view.scope.kind === "thread"
+        ? routeProjectId
+        : null;
+  if (projectId === null) return null;
 
   return (
     <button
@@ -551,7 +558,7 @@ export default definePluginApp((app) => {
 
   app.composer.customize({
     id: "incognito-composer",
-    scopes: ["new-thread"],
+    scopes: ["new-thread", "thread"],
     actions: [{ id: "open-incognito", component: IncognitoComposerAction }],
   });
 
